@@ -10,6 +10,7 @@
 #include <cstring>
 #include <unistd.h>
 #include "Account.h"
+#include "../common/Protocol.h"
 
 class Bank {
 private:
@@ -44,10 +45,16 @@ private:
 
     void broadcast(const std::string& msg) {
         std::lock_guard<std::mutex> lock(adminMtx);
+        
         for (auto it = adminSockets.begin(); it != adminSockets.end(); ) {
             int len = msg.length();
+            
+            std::string encryptedMsg = msg;
+            
+            cipher((void*)encryptedMsg.data(), len);
+
             int w1 = write(*it, &len, sizeof(len));
-            int w2 = write(*it, msg.c_str(), len);
+            int w2 = write(*it, encryptedMsg.data(), len);
             
             if (w1 <= 0 || w2 <= 0) {
                 close(*it);

@@ -57,7 +57,7 @@ public:
 private:
     void performSingleTransaction() {
         Message msg;
-        int numAccounts = 20;
+        int numAccounts = 20; // Zakres kont 100-119
         msg.account_id = 100 + (rand() % numAccounts); 
         
         // Losujemy typ akcji: 0=Wpłata, 1=Wypłata, 2=Saldo, 3=Transfer
@@ -76,17 +76,25 @@ private:
             // TRANSFER
             msg.action = TRANSFER;
             msg.amount = 25.0;
-            // Losujemy cel (musi być inny niż źródło)
             do {
                 msg.target_account_id = 100 + (rand() % numAccounts);
             } while (msg.target_account_id == msg.account_id);
         }
 
-        write(socketFd, &msg, sizeof(msg));
+        // --- 1. SZYFROWANIE (ENCRYPT) ---
+        Message encryptedMsg = msg; 
+        cipher(&encryptedMsg, sizeof(encryptedMsg));
 
+        // Wysyłamy zaszyfrowaną paczkę
+        write(socketFd, &encryptedMsg, sizeof(encryptedMsg));
+
+        //ODBIÓR I ODSZYFROWANIE
         Response res;
         read(socketFd, &res, sizeof(res));
+        
+        cipher(&res, sizeof(res)); 
 
+        // LOGOWANIE
         std::cout << "[ATM " << id << "] Konto " << msg.account_id 
                   << (msg.action == TRANSFER ? " -> TRANSFER do " + std::to_string(msg.target_account_id) : " AKCJA")
                   << " | " << res.message 

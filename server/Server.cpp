@@ -11,11 +11,14 @@ Bank myBank;
 
 void handleClient(int clientSocket) {
     Message msg;
+
     int bytesRead = read(clientSocket, &msg, sizeof(msg));
     if (bytesRead <= 0) {
         close(clientSocket);
         return;
     }
+
+    cipher(&msg, sizeof(msg));
 
     // --- SCIEŻKA ADMINA ---
     if (msg.action == ADMIN_LOGIN) {
@@ -29,6 +32,7 @@ void handleClient(int clientSocket) {
         return;
     }
 
+    // --- SCIEŻKA BANKOMATU ---
     do {
         Response res{false, 0.0, ""};
         
@@ -49,13 +53,22 @@ void handleClient(int clientSocket) {
             strcpy(res.message, "Stan konta");
         }
 
+        // Pobranie salda
         Account* acc = myBank.getAccount(msg.account_id);
         res.current_balance = acc ? acc->getBalance() : 0;
         if (!acc) strcpy(res.message, "Nieznane konto");
 
+        // SZYFRUJEMY ODPOWIEDŹ przed wysłaniem (ENCRYPT)
+        cipher(&res, sizeof(res));
         write(clientSocket, &res, sizeof(res));
 
-    } while (read(clientSocket, &msg, sizeof(msg)) > 0);
+        // CZYTAMY KOLEJNĄ WIADOMOŚĆ
+        bytesRead = read(clientSocket, &msg, sizeof(msg));
+        if (bytesRead > 0) {
+            cipher(&msg, sizeof(msg));
+        }
+
+    } while (bytesRead > 0);
 
     close(clientSocket);
 }
@@ -70,7 +83,7 @@ int main() {
     bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
     listen(serverSocket, 100);
 
-    std::cout << ">>> SERVER READY (Admin Monitoring Version) <<<" << std::endl;
+    std::cout << ">>> SERVER READY (Secure Encrypted Version) <<<" << std::endl;
     
     ThreadPool pool(8); 
 
