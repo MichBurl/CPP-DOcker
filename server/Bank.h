@@ -62,9 +62,11 @@ public:
     Bank() {
         load();
         if (accounts.empty()) {
-            addAccount(100, 1000.0);
-            addAccount(101, 1000.0);
-            addAccount(102, 1000.0);
+            std::cout << ">>> Generowanie 20 nowych kont..." << std::endl;
+            for (int i = 0; i < 20; ++i) {
+                // Tworzymy konta od 100 do 119, każde z 1000.0 na start
+                addAccount(100 + i, 1000.0);
+            }
             save();
         }
     }

@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # --- SERWER ---
   bank-server:
     build: .
     container_name: bank-server
@@ -12,7 +13,7 @@ services:
     networks:
       - bank-network
 
-  # --- PANEL ADMINISTRATORA ---
+  # --- MONITORING ---
   admin-panel:
     build: .
     container_name: admin-panel
@@ -22,8 +23,8 @@ services:
     networks:
       - bank-network
 
-  # --- BANKOMATY (4 sztuki) ---
-  atm-1:
+  # --- BANKOMATY (1-10) ---
+  atm-1: &atm-base  # Definiujemy wzorzec (kotwicę), żeby nie kopiować kodu
     build: .
     container_name: atm-1
     command: ./client_app
@@ -35,37 +36,58 @@ services:
       - bank-network
 
   atm-2:
-    build: .
+    <<: *atm-base  # Używamy wzorca z atm-1
     container_name: atm-2
-    command: ./client_app
-    depends_on:
-      - bank-server
     environment:
       - CLIENT_ID=2
-    networks:
-      - bank-network
 
   atm-3:
-    build: .
+    <<: *atm-base
     container_name: atm-3
-    command: ./client_app
-    depends_on:
-      - bank-server
     environment:
       - CLIENT_ID=3
-    networks:
-      - bank-network
 
   atm-4:
-    build: .
+    <<: *atm-base
     container_name: atm-4
-    command: ./client_app
-    depends_on:
-      - bank-server
     environment:
       - CLIENT_ID=4
-    networks:
-      - bank-network
+  
+  atm-5:
+    <<: *atm-base
+    container_name: atm-5
+    environment:
+      - CLIENT_ID=5
+
+  atm-6:
+    <<: *atm-base
+    container_name: atm-6
+    environment:
+      - CLIENT_ID=6
+
+  atm-7:
+    <<: *atm-base
+    container_name: atm-7
+    environment:
+      - CLIENT_ID=7
+
+  atm-8:
+    <<: *atm-base
+    container_name: atm-8
+    environment:
+      - CLIENT_ID=8
+
+  atm-9:
+    <<: *atm-base
+    container_name: atm-9
+    environment:
+      - CLIENT_ID=9
+
+  atm-10:
+    <<: *atm-base
+    container_name: atm-10
+    environment:
+      - CLIENT_ID=10
 
 networks:
   bank-network:

@@ -55,18 +55,17 @@ public:
     }
 
 private:
-    // Metoda pomocnicza - ukryta przed światem zewnętrznym
     void performSingleTransaction() {
         Message msg;
-        // Losujemy, kim jesteśmy w tej transakcji (100, 101 lub 102)
-        msg.account_id = 100 + (rand() % 3); 
+        int numAccounts = 20;
+        msg.account_id = 100 + (rand() % numAccounts); 
         
         // Losujemy typ akcji: 0=Wpłata, 1=Wypłata, 2=Saldo, 3=Transfer
         int action = rand() % 4; 
 
         if (action == 0) {
             msg.action = DEPOSIT;
-            msg.amount = 50.0;
+            msg.amount = 100.0;
         } else if (action == 1) {
             msg.action = WITHDRAW;
             msg.amount = 50.0;
@@ -76,10 +75,10 @@ private:
         } else {
             // TRANSFER
             msg.action = TRANSFER;
-            msg.amount = 30.0;
+            msg.amount = 25.0;
             // Losujemy cel (musi być inny niż źródło)
             do {
-                msg.target_account_id = 100 + (rand() % 3);
+                msg.target_account_id = 100 + (rand() % numAccounts);
             } while (msg.target_account_id == msg.account_id);
         }
 
