@@ -3,29 +3,60 @@
 
 #include <map>
 #include <mutex>
+#include <fstream>
+#include <iostream>
+#include <filesystem> // C++17
 #include "Account.h"
 
 class Bank {
 private:
     std::map<int, Account*> accounts;
     std::mutex bankMtx;
+    const std::string dbFile = "bank_data.txt";
+
+    void save() {
+        std::lock_guard<std::mutex> lock(bankMtx); 
+        std::ofstream file(dbFile);
+        if (file.is_open()) {
+            for (const auto& pair : accounts) {
+                file << pair.first << " " << pair.second->getBalance() << "\n";
+            }
+        }
+    }
+
+    void load() {
+        std::ifstream file(dbFile);
+        if (file.is_open()) {
+            int id;
+            double balance;
+            while (file >> id >> balance) {
+                accounts[id] = new Account(id, balance);
+            }
+            std::cout << ">>> Wczytano dane z pliku." << std::endl;
+        }
+    }
 
 public:
     Bank() {
-        addAccount(100, 1000.0);
-        addAccount(101, 1000.0);
-        addAccount(102, 1000.0);
+        load();
+        if (accounts.empty()) {
+            addAccount(100, 1000.0);
+            addAccount(101, 1000.0);
+            addAccount(102, 1000.0);
+            save();
+        }
     }
 
     ~Bank() {
-        for (auto& pair : accounts) {
-            delete pair.second;
-        }
+        save();
+        for (auto& pair : accounts) delete pair.second;
     }
 
     void addAccount(int id, double balance) {
         std::lock_guard<std::mutex> lock(bankMtx);
-        accounts[id] = new Account(id, balance);
+        if (accounts.find(id) == accounts.end()) {
+            accounts[id] = new Account(id, balance);
+        }
     }
 
     Account* getAccount(int id) {
@@ -34,28 +65,47 @@ public:
         return nullptr;
     }
 
+    bool deposit(int id, double amount) {
+        Account* acc = getAccount(id);
+        if (acc) {
+            acc->deposit(amount);
+            save();
+            return true;
+        }
+        return false;
+    }
+
+    bool withdraw(int id, double amount) {
+        Account* acc = getAccount(id);
+        if (acc && acc->withdraw(amount)) {
+            save(); 
+            return true;
+        }
+        return false;
+    }
+
     bool transfer(int fromId, int toId, double amount) {
         Account* fromAcc = getAccount(fromId);
         Account* toAcc = getAccount(toId);
 
-        if (!fromAcc || !toAcc || fromId == toId) {
-            std::cout << "Transfer failed: Invalid accounts" << std::endl;
-            return false;
-        }
+        if (!fromAcc || !toAcc || fromId == toId) return false;
 
-        std::scoped_lock lock(fromAcc->mtx, toAcc->mtx);
-
-        if (fromAcc->balance >= amount) {
-            fromAcc->balance -= amount;
-            toAcc->balance += amount;
+        bool success = false;
+        {
+            std::scoped_lock lock(fromAcc->mtx, toAcc->mtx);
             
-            std::cout << ">>> TRANSFER SUKCES: " << amount 
-                      << " z " << fromId << " do " << toId << std::endl;
-            return true;
-        } else {
-            std::cout << ">>> TRANSFER BLAD: Brak srodkow u " << fromId << std::endl;
-            return false;
+            if (fromAcc->balance >= amount) {
+                fromAcc->balance -= amount;
+                toAcc->balance += amount;
+                success = true;
+                std::cout << "Transfer: " << amount << " (" << fromId << "->" << toId << ")" << std::endl;
+            }
         }
+        if (success) {
+            save();
+        }
+
+        return success;
     }
 };
 

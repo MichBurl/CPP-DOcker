@@ -8,6 +8,9 @@ services:
     command: ./server_app
     ports:
       - "8080:8080"
+    volumes:
+      # Mapowanie pliku bazy danych (TRWAŁOŚĆ DANYCH)
+      - ./bank_data.txt:/app/bank_data.txt
     networks:
       - bank-network
 
@@ -35,7 +38,7 @@ services:
     networks:
       - bank-network
 
-  # --- BANKOMAT 3 (NOWY) ---
+  # --- BANKOMAT 3 ---
   atm-3:
     build: .
     container_name: atm-3
@@ -47,7 +50,7 @@ services:
     networks:
       - bank-network
 
-  # --- BANKOMAT 4 (NOWY) ---
+  # --- BANKOMAT 4 ---
   atm-4:
     build: .
     container_name: atm-4
@@ -59,7 +62,7 @@ services:
     networks:
       - bank-network
 
-# Sieć łącząca wszystkie maszyny
+# Wspólna sieć dla wszystkich kontenerów
 networks:
   bank-network:
     driver: bridge

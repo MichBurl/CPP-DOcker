@@ -18,26 +18,21 @@ public:
     void deposit(double amount) {
         std::lock_guard<std::mutex> lock(mtx);
         balance += amount;
-        std::cout << "[Konto " << id << "] Wplacono: " << amount << ". Nowe saldo: " << balance << std::endl;
     }
 
     bool withdraw(double amount) {
         std::lock_guard<std::mutex> lock(mtx);
         if (balance >= amount) {
             balance -= amount;
-            std::cout << "[Konto " << id << "] Wyplacono: " << amount << ". Nowe saldo: " << balance << std::endl;
             return true;
-        } else {
-            return false;
         }
+        return false;
     }
 
     double getBalance() const {
         std::lock_guard<std::mutex> lock(mtx);
         return balance;
     }
-    
-    int getId() const { return id; }
 };
 
 #endif

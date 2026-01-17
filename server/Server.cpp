@@ -15,29 +15,31 @@ void handleClient(int clientSocket) {
         if (read(clientSocket, &msg, sizeof(msg)) <= 0) break;
 
         Response res{false, 0.0, ""};
-        Account* acc = myBank.getAccount(msg.account_id);
+        
+        // Obsługa akcji
+        if (msg.action == DEPOSIT) {
+            res.success = myBank.deposit(msg.account_id, msg.amount);
+            strcpy(res.message, res.success ? "Wplata OK" : "Blad");
+        } 
+        else if (msg.action == WITHDRAW) {
+            res.success = myBank.withdraw(msg.account_id, msg.amount);
+            strcpy(res.message, res.success ? "Wyplata OK" : "Brak srodkow");
+        }
+        else if (msg.action == TRANSFER) {
+            res.success = myBank.transfer(msg.account_id, msg.target_account_id, msg.amount);
+            strcpy(res.message, res.success ? "Przelew OK" : "Blad");
+        }
+        else if (msg.action == BALANCE) {
+            res.success = true;
+            strcpy(res.message, "Stan konta");
+        }
 
+        // Pobranie salda
+        Account* acc = myBank.getAccount(msg.account_id);
         if (acc) {
-            // Obsługa logiki (taka sama jak w kroku 1)
-            if (msg.action == DEPOSIT) {
-                acc->deposit(msg.amount);
-                res.success = true;
-                strcpy(res.message, "Wplata OK");
-            } 
-            else if (msg.action == WITHDRAW) {
-                res.success = acc->withdraw(msg.amount);
-                strcpy(res.message, res.success ? "Wyplata OK" : "Brak srodkow");
-            }
-            else if (msg.action == BALANCE) {
-                res.success = true;
-                strcpy(res.message, "Stan konta");
-            }
-            else if (msg.action == TRANSFER) {
-                res.success = myBank.transfer(msg.account_id, msg.target_account_id, msg.amount);
-                strcpy(res.message, res.success ? "Przelew OK" : "Blad przelewu");
-            }
             res.current_balance = acc->getBalance();
         } else {
+            res.current_balance = 0;
             strcpy(res.message, "Nieznane konto");
         }
 
@@ -56,15 +58,12 @@ int main() {
     bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
     listen(serverSocket, 100);
 
-    std::cout << ">>> SERVER READY (Pool Version) <<<" << std::endl;
+    std::cout << ">>> SERVER READY (Deadlock-Free + Pool + DB) <<<" << std::endl;
     
-    // Tworzymy pulę 4 stałych wątków
     ThreadPool pool(4); 
 
     while (true) {
         int clientSocket = accept(serverSocket, nullptr, nullptr);
-        
-        // Zamiast tworzyć nowy wątek, wrzucamy zadanie do kolejki
         pool.enqueue([clientSocket] {
             handleClient(clientSocket);
         });
