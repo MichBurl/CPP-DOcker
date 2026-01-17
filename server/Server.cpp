@@ -5,21 +5,20 @@
 #include <cstring>
 #include "../common/Protocol.h"
 #include "Bank.h"
+#include "ThreadPool.h"
 
 Bank myBank;
 
 void handleClient(int clientSocket) {
     Message msg;
     while (true) {
-        int bytesRead = read(clientSocket, &msg, sizeof(msg));
-        if (bytesRead <= 0) break;
+        if (read(clientSocket, &msg, sizeof(msg)) <= 0) break;
 
-        Response res;
-        res.success = false;
-        
+        Response res{false, 0.0, ""};
         Account* acc = myBank.getAccount(msg.account_id);
 
         if (acc) {
+            // Obsługa logiki (taka sama jak w kroku 1)
             if (msg.action == DEPOSIT) {
                 acc->deposit(msg.amount);
                 res.success = true;
@@ -29,19 +28,17 @@ void handleClient(int clientSocket) {
                 res.success = acc->withdraw(msg.amount);
                 strcpy(res.message, res.success ? "Wyplata OK" : "Brak srodkow");
             }
-            else if (msg.action == TRANSFER) {
-                bool ok = myBank.transfer(msg.account_id, msg.target_account_id, msg.amount);
-                res.success = ok;
-                strcpy(res.message, ok ? "Przelew wyslany" : "Blad przelewu");
-            }
             else if (msg.action == BALANCE) {
                 res.success = true;
                 strcpy(res.message, "Stan konta");
             }
+            else if (msg.action == TRANSFER) {
+                res.success = myBank.transfer(msg.account_id, msg.target_account_id, msg.amount);
+                strcpy(res.message, res.success ? "Przelew OK" : "Blad przelewu");
+            }
             res.current_balance = acc->getBalance();
         } else {
             strcpy(res.message, "Nieznane konto");
-            res.current_balance = 0;
         }
 
         write(clientSocket, &res, sizeof(res));
@@ -57,13 +54,20 @@ int main() {
     serverAddr.sin_addr.s_addr = INADDR_ANY;
 
     bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-    listen(serverSocket, 10); // Zwiększamy kolejkę dla 4 bankomatów
+    listen(serverSocket, 100);
 
-    std::cout << ">>> BANK SERVER READY (OOP Version) <<<" << std::endl;
+    std::cout << ">>> SERVER READY (Pool Version) <<<" << std::endl;
+    
+    // Tworzymy pulę 4 stałych wątków
+    ThreadPool pool(4); 
 
     while (true) {
         int clientSocket = accept(serverSocket, nullptr, nullptr);
-        std::thread(handleClient, clientSocket).detach();
+        
+        // Zamiast tworzyć nowy wątek, wrzucamy zadanie do kolejki
+        pool.enqueue([clientSocket] {
+            handleClient(clientSocket);
+        });
     }
     return 0;
 }
