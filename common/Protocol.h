@@ -1,25 +1,24 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
-// Typy operacji
 enum ActionType {
     BALANCE = 1,
     DEPOSIT = 2,
-    WITHDRAW = 3
+    WITHDRAW = 3,
+    TRANSFER = 4  
 };
 
-// Struktura przesyłana przez sieć (prosta serializacja binarna)
 struct Message {
-    int account_id;
+    int account_id;      
+    int target_account_id; 
     ActionType action;
     double amount;
 };
 
-// Struktura odpowiedzi
 struct Response {
     bool success;
     double current_balance;
-    char message[64]; // Krótki komunikat tekstowy
+    char message[64];
 };
 
 #endif
