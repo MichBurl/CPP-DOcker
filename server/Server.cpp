@@ -11,12 +11,27 @@ Bank myBank;
 
 void handleClient(int clientSocket) {
     Message msg;
-    while (true) {
-        if (read(clientSocket, &msg, sizeof(msg)) <= 0) break;
+    int bytesRead = read(clientSocket, &msg, sizeof(msg));
+    if (bytesRead <= 0) {
+        close(clientSocket);
+        return;
+    }
 
+    // --- SCIEŻKA ADMINA ---
+    if (msg.action == ADMIN_LOGIN) {
+        myBank.addAdmin(clientSocket);
+        
+        char dummy;
+        while (read(clientSocket, &dummy, 1) > 0) {
+        }
+        std::cout << ">>> Admin rozlaczony." << std::endl;
+        close(clientSocket);
+        return;
+    }
+
+    do {
         Response res{false, 0.0, ""};
         
-        // Obsługa akcji
         if (msg.action == DEPOSIT) {
             res.success = myBank.deposit(msg.account_id, msg.amount);
             strcpy(res.message, res.success ? "Wplata OK" : "Blad");
@@ -34,17 +49,14 @@ void handleClient(int clientSocket) {
             strcpy(res.message, "Stan konta");
         }
 
-        // Pobranie salda
         Account* acc = myBank.getAccount(msg.account_id);
-        if (acc) {
-            res.current_balance = acc->getBalance();
-        } else {
-            res.current_balance = 0;
-            strcpy(res.message, "Nieznane konto");
-        }
+        res.current_balance = acc ? acc->getBalance() : 0;
+        if (!acc) strcpy(res.message, "Nieznane konto");
 
         write(clientSocket, &res, sizeof(res));
-    }
+
+    } while (read(clientSocket, &msg, sizeof(msg)) > 0);
+
     close(clientSocket);
 }
 
@@ -58,9 +70,9 @@ int main() {
     bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
     listen(serverSocket, 100);
 
-    std::cout << ">>> SERVER READY (Deadlock-Free + Pool + DB) <<<" << std::endl;
+    std::cout << ">>> SERVER READY (Admin Monitoring Version) <<<" << std::endl;
     
-    ThreadPool pool(4); 
+    ThreadPool pool(8); 
 
     while (true) {
         int clientSocket = accept(serverSocket, nullptr, nullptr);

@@ -5,12 +5,13 @@ enum ActionType {
     BALANCE = 1,
     DEPOSIT = 2,
     WITHDRAW = 3,
-    TRANSFER = 4  
+    TRANSFER = 4,
+    ADMIN_LOGIN = 99
 };
 
 struct Message {
-    int account_id;      
-    int target_account_id; 
+    int account_id;
+    int target_account_id;
     ActionType action;
     double amount;
 };

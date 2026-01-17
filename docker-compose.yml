@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # --- SERWER BANKOWY ---
   bank-server:
     build: .
     container_name: bank-server
@@ -9,12 +8,21 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Mapowanie pliku bazy danych (TRWAŁOŚĆ DANYCH)
       - ./bank_data.txt:/app/bank_data.txt
     networks:
       - bank-network
 
-  # --- BANKOMAT 1 ---
+  # --- PANEL ADMINISTRATORA ---
+  admin-panel:
+    build: .
+    container_name: admin-panel
+    command: ./admin_app
+    depends_on:
+      - bank-server
+    networks:
+      - bank-network
+
+  # --- BANKOMATY (4 sztuki) ---
   atm-1:
     build: .
     container_name: atm-1
@@ -26,7 +34,6 @@ services:
     networks:
       - bank-network
 
-  # --- BANKOMAT 2 ---
   atm-2:
     build: .
     container_name: atm-2
@@ -38,7 +45,6 @@ services:
     networks:
       - bank-network
 
-  # --- BANKOMAT 3 ---
   atm-3:
     build: .
     container_name: atm-3
@@ -50,7 +56,6 @@ services:
     networks:
       - bank-network
 
-  # --- BANKOMAT 4 ---
   atm-4:
     build: .
     container_name: atm-4
@@ -62,7 +67,6 @@ services:
     networks:
       - bank-network
 
-# Wspólna sieć dla wszystkich kontenerów
 networks:
   bank-network:
     driver: bridge

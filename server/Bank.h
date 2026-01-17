@@ -2,16 +2,23 @@
 #define BANK_H
 
 #include <map>
+#include <vector>
 #include <mutex>
 #include <fstream>
 #include <iostream>
-#include <filesystem> // C++17
+#include <algorithm>
+#include <cstring>
+#include <unistd.h>
 #include "Account.h"
 
 class Bank {
 private:
     std::map<int, Account*> accounts;
     std::mutex bankMtx;
+    
+    std::vector<int> adminSockets;
+    std::mutex adminMtx;
+    
     const std::string dbFile = "bank_data.txt";
 
     void save() {
@@ -32,7 +39,22 @@ private:
             while (file >> id >> balance) {
                 accounts[id] = new Account(id, balance);
             }
-            std::cout << ">>> Wczytano dane z pliku." << std::endl;
+        }
+    }
+
+    void broadcast(const std::string& msg) {
+        std::lock_guard<std::mutex> lock(adminMtx);
+        for (auto it = adminSockets.begin(); it != adminSockets.end(); ) {
+            int len = msg.length();
+            int w1 = write(*it, &len, sizeof(len));
+            int w2 = write(*it, msg.c_str(), len);
+            
+            if (w1 <= 0 || w2 <= 0) {
+                close(*it);
+                it = adminSockets.erase(it);
+            } else {
+                ++it;
+            }
         }
     }
 
@@ -50,6 +72,13 @@ public:
     ~Bank() {
         save();
         for (auto& pair : accounts) delete pair.second;
+    }
+
+
+    void addAdmin(int socket) {
+        std::lock_guard<std::mutex> lock(adminMtx);
+        adminSockets.push_back(socket);
+        std::cout << ">>> ADMIN LOGGED IN (Socket: " << socket << ")" << std::endl;
     }
 
     void addAccount(int id, double balance) {
@@ -70,6 +99,8 @@ public:
         if (acc) {
             acc->deposit(amount);
             save();
+            // Logujemy zdarzenie
+            broadcast("[LOG] Wplata: " + std::to_string((int)amount) + " na konto " + std::to_string(id));
             return true;
         }
         return false;
@@ -78,7 +109,8 @@ public:
     bool withdraw(int id, double amount) {
         Account* acc = getAccount(id);
         if (acc && acc->withdraw(amount)) {
-            save(); 
+            save();
+            broadcast("[LOG] Wyplata: " + std::to_string((int)amount) + " z konta " + std::to_string(id));
             return true;
         }
         return false;
@@ -93,19 +125,19 @@ public:
         bool success = false;
         {
             std::scoped_lock lock(fromAcc->mtx, toAcc->mtx);
-            
             if (fromAcc->balance >= amount) {
                 fromAcc->balance -= amount;
                 toAcc->balance += amount;
                 success = true;
-                std::cout << "Transfer: " << amount << " (" << fromId << "->" << toId << ")" << std::endl;
             }
-        }
+        } 
+
         if (success) {
             save();
+            broadcast("[LOG] TRANSFER: " + std::to_string((int)amount) + " | " + std::to_string(fromId) + " -> " + std::to_string(toId));
+            return true;
         }
-
-        return success;
+        return false;
     }
 };
 
