@@ -27,7 +27,15 @@ private:
         std::ofstream file(dbFile);
         if (file.is_open()) {
             for (const auto& pair : accounts) {
-                file << pair.first << " " << pair.second->getBalance() << "\n";
+                Account* acc = pair.second;
+                auto hist = acc->getHistory(); 
+                
+                // Format: ID SALDO LICZBA_WPISÓW
+                file << pair.first << " " << acc->getBalance() << " " << hist.size() << "\n";
+                
+                for (const auto& entry : hist) {
+                    file << entry << "\n";
+                }
             }
         }
     }
@@ -37,9 +45,24 @@ private:
         if (file.is_open()) {
             int id;
             double balance;
-            while (file >> id >> balance) {
+            int historyCount;
+
+            while (file >> id >> balance >> historyCount) {
                 accounts[id] = new Account(id, balance);
+                
+                accounts[id]->clearHistory();
+
+                std::string dummy;
+                std::getline(file, dummy); 
+
+                for (int i = 0; i < historyCount; ++i) {
+                    std::string line;
+                    if (std::getline(file, line)) {
+                        accounts[id]->addHistory(line);
+                    }
+                }
             }
+            std::cout << ">>> Wczytano dane i historie z pliku." << std::endl;
         }
     }
 
@@ -50,7 +73,6 @@ private:
             int len = msg.length();
             
             std::string encryptedMsg = msg;
-            
             cipher((void*)encryptedMsg.data(), len);
 
             int w1 = write(*it, &len, sizeof(len));
@@ -71,7 +93,6 @@ public:
         if (accounts.empty()) {
             std::cout << ">>> Generowanie 20 nowych kont..." << std::endl;
             for (int i = 0; i < 20; ++i) {
-                // Tworzymy konta od 100 do 119, każde z 1000.0 na start
                 addAccount(100 + i, 1000.0);
             }
             save();
@@ -82,7 +103,6 @@ public:
         save();
         for (auto& pair : accounts) delete pair.second;
     }
-
 
     void addAdmin(int socket) {
         std::lock_guard<std::mutex> lock(adminMtx);
@@ -108,7 +128,6 @@ public:
         if (acc) {
             acc->deposit(amount);
             save();
-            // Logujemy zdarzenie
             broadcast("[LOG] Wplata: " + std::to_string((int)amount) + " na konto " + std::to_string(id));
             return true;
         }
@@ -134,9 +153,14 @@ public:
         bool success = false;
         {
             std::scoped_lock lock(fromAcc->mtx, toAcc->mtx);
+            
             if (fromAcc->balance >= amount) {
                 fromAcc->balance -= amount;
                 toAcc->balance += amount;
+                
+                fromAcc->addHistory("Przelew do " + std::to_string(toId) + ": -" + std::to_string((int)amount));
+                toAcc->addHistory("Przelew od " + std::to_string(fromId) + ": +" + std::to_string((int)amount));
+                
                 success = true;
             }
         } 

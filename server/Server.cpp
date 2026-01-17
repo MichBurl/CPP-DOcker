@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <cstring>
+#include <vector>
 #include "../common/Protocol.h"
 #include "Bank.h"
 #include "ThreadPool.h"
@@ -36,6 +37,40 @@ void handleClient(int clientSocket) {
     do {
         Response res{false, 0.0, ""};
         
+        if (msg.action == GET_HISTORY) {
+            Account* acc = myBank.getAccount(msg.account_id);
+            if (acc) {
+                // Pobieramy historię z konta
+                std::vector<std::string> history = acc->getHistory();
+                
+                res.success = true;
+                res.current_balance = history.size();
+                strcpy(res.message, "START_HISTORY");
+                
+                cipher(&res, sizeof(res));
+                write(clientSocket, &res, sizeof(res));
+
+                for (const auto& entry : history) {
+                    Response hRes;
+                    hRes.success = true;
+                    hRes.current_balance = 0;
+                    strncpy(hRes.message, entry.c_str(), 63);
+                    hRes.message[63] = '\0';
+
+                    cipher(&hRes, sizeof(hRes));
+                    write(clientSocket, &hRes, sizeof(hRes));
+                }
+
+                bytesRead = read(clientSocket, &msg, sizeof(msg));
+                if (bytesRead > 0) cipher(&msg, sizeof(msg));
+                continue; 
+
+            } else {
+                strcpy(res.message, "Nieznane konto");
+                res.success = false;
+            }
+        }
+
         if (msg.action == DEPOSIT) {
             res.success = myBank.deposit(msg.account_id, msg.amount);
             strcpy(res.message, res.success ? "Wplata OK" : "Blad");
@@ -53,16 +88,13 @@ void handleClient(int clientSocket) {
             strcpy(res.message, "Stan konta");
         }
 
-        // Pobranie salda
         Account* acc = myBank.getAccount(msg.account_id);
         res.current_balance = acc ? acc->getBalance() : 0;
-        if (!acc) strcpy(res.message, "Nieznane konto");
+        if (!acc && msg.action != GET_HISTORY) strcpy(res.message, "Nieznane konto");
 
-        // SZYFRUJEMY ODPOWIEDŹ przed wysłaniem (ENCRYPT)
         cipher(&res, sizeof(res));
         write(clientSocket, &res, sizeof(res));
 
-        // CZYTAMY KOLEJNĄ WIADOMOŚĆ
         bytesRead = read(clientSocket, &msg, sizeof(msg));
         if (bytesRead > 0) {
             cipher(&msg, sizeof(msg));
@@ -83,7 +115,7 @@ int main() {
     bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
     listen(serverSocket, 100);
 
-    std::cout << ">>> SERVER READY (Secure Encrypted Version) <<<" << std::endl;
+    std::cout << ">>> SERVER READY (History + Secure + Admin) <<<" << std::endl;
     
     ThreadPool pool(8); 
 

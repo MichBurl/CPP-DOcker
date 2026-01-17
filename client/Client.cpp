@@ -56,45 +56,55 @@ public:
 
 private:
     void performSingleTransaction() {
-        Message msg;
-        int numAccounts = 20; // Zakres kont 100-119
+Message msg;
+        int numAccounts = 20;
         msg.account_id = 100 + (rand() % numAccounts); 
         
-        // Losujemy typ akcji: 0=Wpłata, 1=Wypłata, 2=Saldo, 3=Transfer
-        int action = rand() % 4; 
+        // Zwiększamy zakres losowania do 5 (0,1,2,3,4)
+        int action = rand() % 5; 
 
-        if (action == 0) {
-            msg.action = DEPOSIT;
-            msg.amount = 100.0;
-        } else if (action == 1) {
-            msg.action = WITHDRAW;
-            msg.amount = 50.0;
-        } else if (action == 2) {
-            msg.action = BALANCE;
-            msg.amount = 0;
+        if (action == 0) { msg.action = DEPOSIT; msg.amount = 100.0; }
+        else if (action == 1) { msg.action = WITHDRAW; msg.amount = 50.0; }
+        else if (action == 2) { msg.action = BALANCE; msg.amount = 0; }
+        else if (action == 3) {
+            msg.action = TRANSFER; msg.amount = 25.0;
+            do { msg.target_account_id = 100 + (rand() % numAccounts); } 
+            while (msg.target_account_id == msg.account_id);
         } else {
-            // TRANSFER
-            msg.action = TRANSFER;
-            msg.amount = 25.0;
-            do {
-                msg.target_account_id = 100 + (rand() % numAccounts);
-            } while (msg.target_account_id == msg.account_id);
+            msg.action = GET_HISTORY;
+            msg.amount = 0;
         }
 
-        // --- 1. SZYFROWANIE (ENCRYPT) ---
         Message encryptedMsg = msg; 
         cipher(&encryptedMsg, sizeof(encryptedMsg));
-
-        // Wysyłamy zaszyfrowaną paczkę
         write(socketFd, &encryptedMsg, sizeof(encryptedMsg));
+        
+        if (msg.action == GET_HISTORY) {
+            Response header;
+            read(socketFd, &header, sizeof(header));
+            cipher(&header, sizeof(header));
 
-        //ODBIÓR I ODSZYFROWANIE
+            if (header.success) {
+                int count = (int)header.current_balance;
+                std::cout << "[ATM " << id << "] --- HISTORIA KONTA " << msg.account_id << " (" << count << ") ---" << std::endl;
+                
+                for (int i = 0; i < count; ++i) {
+                    Response entry;
+                    read(socketFd, &entry, sizeof(entry));
+                    cipher(&entry, sizeof(entry));
+                    std::cout << "    " << i+1 << ". " << entry.message << std::endl;
+                }
+                std::cout << "-----------------------------------" << std::endl;
+            } else {
+                 std::cout << "[ATM " << id << "] Blad pobierania historii: " << header.message << std::endl;
+            }
+            return;
+        }
+
         Response res;
         read(socketFd, &res, sizeof(res));
-        
-        cipher(&res, sizeof(res)); 
+        cipher(&res, sizeof(res));
 
-        // LOGOWANIE
         std::cout << "[ATM " << id << "] Konto " << msg.account_id 
                   << (msg.action == TRANSFER ? " -> TRANSFER do " + std::to_string(msg.target_account_id) : " AKCJA")
                   << " | " << res.message 

@@ -3,7 +3,6 @@
 
 #include <string>
 
-// Klucz symetryczny (musi być taki sam u Klienta i Serwera)
 const std::string SECRET_KEY = "SUPER_TAJNE_HASLO_BANKU_XYZ";
 
 enum ActionType {
@@ -11,6 +10,7 @@ enum ActionType {
     DEPOSIT = 2,
     WITHDRAW = 3,
     TRANSFER = 4,
+    GET_HISTORY = 5,
     ADMIN_LOGIN = 99
 };
 
@@ -24,7 +24,7 @@ struct Message {
 struct Response {
     bool success;
     double current_balance;
-    char message[64];
+    char message[64];      
 };
 
 inline void cipher(void* data, size_t size) {
