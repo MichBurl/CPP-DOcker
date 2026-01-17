@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # --- SERWER BANKOWY ---
+  bank-server:
+    build: .
+    container_name: bank-server
+    command: ./server_app
+    ports:
+      - "8080:8080"
+    networks:
+      - bank-network
+
+  # --- BANKOMAT 1 ---
+  atm-1:
+    build: .
+    container_name: atm-1
+    command: ./client_app
+    depends_on:
+      - bank-server
+    environment:
+      - CLIENT_ID=1
+    networks:
+      - bank-network
+
+  # --- BANKOMAT 2 ---
+  atm-2:
+    build: .
+    container_name: atm-2
+    command: ./client_app
+    depends_on:
+      - bank-server
+    environment:
+      - CLIENT_ID=2
+    networks:
+      - bank-network
+
+  # --- BANKOMAT 3 (NOWY) ---
+  atm-3:
+    build: .
+    container_name: atm-3
+    command: ./client_app
+    depends_on:
+      - bank-server
+    environment:
+      - CLIENT_ID=3
+    networks:
+      - bank-network
+
+  # --- BANKOMAT 4 (NOWY) ---
+  atm-4:
+    build: .
+    container_name: atm-4
+    command: ./client_app
+    depends_on:
+      - bank-server
+    environment:
+      - CLIENT_ID=4
+    networks:
+      - bank-network
+
+# Sieć łącząca wszystkie maszyny
+networks:
+  bank-network:
+    driver: bridge

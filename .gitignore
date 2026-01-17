@@ -1,0 +1,14 @@
+# Skompilowane pliki
+*.out
+*.exe
+*.o
+server_app
+client_app
+program
+app
+
+# Pliki systemowe
+.DS_Store
+Thumbs.db
+
+.vscode/
